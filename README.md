@@ -377,7 +377,9 @@ You can export the full `sim_df` (CSV) containing every timestep's `T_tank`, `P_
 <a name="ref5"></a>**[5]** Sutton, G. P., & Biblarz, O., *Rocket Propulsion Elements*, 9th Edition — Nozzle performance, choked flow, thrust, exit velocity  
 - Ch. 5 — Nozzle area–Mach relations and propulsion fundamentals
 
-- Provides recommended L_vap values for various fluids  
+- Provides recommended L_vap values for various fluids
+
+  
 <a name="ref6"></a>**[6]** Hill, P. G., & Peterson, C. R., *Mechanics and Thermodynamics of Propulsion*, 2nd Edition  
 - Ch. 2, Sec. 2.2–2.3 — Perfect gas, cp, cv, γ, energy balances  
 - Ch. 3, Sec. 3.3–3.4 — One-dimensional isentropic area–Mach relations
