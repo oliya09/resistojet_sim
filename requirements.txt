@@ -1,4 +1,15 @@
-streamlit==1.26.1
-numpy==1.27.5
-pandas==2.1.1
-plotly==5.17.0
+
+# Core scientific stack
+numpy>=1.26.0
+pandas>=2.1.0
+
+# Streamlit App
+streamlit>=1.26.1
+plotly>=5.17.0
+
+# Propellant / Fluid database
+fluids>=0.1.18
+
+# Optional / utility
+rich>=14.2.0
+
