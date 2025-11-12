@@ -105,10 +105,7 @@ def cp_poly_factory(fluid_name: str, T0: float) -> Callable[[float], float]:
 ```
 
 * **Purpose:** Return a callable function for specific heat $c_p(T)$ as a polynomial of temperature.
-* **Equation:**
-  $
-  c_p(T) = a + bT + cT^2 + dT^3
-  $  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[3]](#ref3)
+* **Equation:** $c_p(T) = a + bT + cT^2 + dT^3$  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[3]](#ref3)
 
 Where $(a, b, c, d)$ are fluid-specific coefficients from the `FLUIDS` database.
  
@@ -123,10 +120,7 @@ def gamma_from_cp(cp: float, molar_mass_kg_per_mol: float) -> float:
 ```
 
 * **Purpose:** Compute ratio of specific heats $(\gamma = c_p / c_v)$.
-* **Equations:**
-  $
-  R_\text{specific} = \frac{R_\text{universal}}{M},\quad c_v = c_p - R_\text{specific},\quad \gamma = \frac{c_p}{c_v}
-  $&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[6]](#ref6)
+* **Equations:** $R_\text{specific} = \frac{R_\text{universal}}{M},\quad c_v = c_p - R_\text{specific},\quad \gamma = \frac{c_p}{c_v}$&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[6]](#ref6)
 
 
 ---
@@ -139,10 +133,7 @@ def compute_p0_from_T0(T0: float, fluid_name: str) -> float:
 ```
 
 * **Purpose:** Compute tank vapor pressure from temperature using the Antoine equation.
-* **Antoine equation (used in code):**
-  $
-  \log_{10}(P) = A - \frac{B}{T + C}
-  $&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[2]](#ref2)
+* **Antoine equation (used in code):** $\log_{10}(P) = A - \frac{B}{T + C}$&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[2]](#ref2)
 
 Where $P$ is vapor pressure (Pa), $T$ is temperature (K) and $(A,B,C)$ are Antoine coefficients taken from the `FLUIDS` entry appropriate to the temperature range.
 * **Notes:** Implement coefficient selection by matching `T0` to the `Tmin`/`Tmax` ranges in the `antoine` table. Convert log10 result to Pa (Antoine constants are commonly reported for pressure in bar, mmHg or kPa — normalize units when loading data).
@@ -196,7 +187,7 @@ def remove_vaporization_heat(self, mdot_vapor, mass_current, dt):
 ```
 
 * **Purpose:** Reduce tank temperature due to vaporization.
-* **Equation:** $\Delta T = - \dfrac{\dot{m}_{\text{vap}}  L_{\text{vap}} dt}{m_{\text{current}} c_p}$.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[4]](#ref4)
+* **Equation:** $ΔT = - \dfrac{\dot{m_\text{vap}} L_\text{vap} \ dt}{m_\text{current} \ c_p}$ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[4]](#ref4)
 ---
 
 ### `Tank.add_heat(self, Qdot, mass_current, dt)`
@@ -208,7 +199,7 @@ def add_heat(self, Qdot, mass_current, dt):
 ```
 
 * **Purpose:** Increase tank temperature due to heater or environmental heat.
-* **Equation:** $\Delta T = \dfrac{Q_\text{dot}  dt}{m_\text{current} c_p}$.
+* **Equation:**  $\Delta T = \dfrac{Q_\text{dot}  dt}{m_\text{current} c_p}$.
 
 ---
 
@@ -239,10 +230,7 @@ def update_conditions(self, Pt, Tt, mdot_in=None, Qdot_heater=0.0, Tc_guess=None
 ```
 
 * **Purpose:** Compute chamber gas temperature $(T_c)$ and pressure $(P_c)$ using heater input.
-* **Iterative energy balance (conceptual):**
-  $
-  T_c = T_t + \frac{Q_\text{heater}}{\dot{m}_\text{eff}, c_p(T_c)},\quad P_c \approx P_t
-  $
+* **Iterative energy balance (conceptual):** $T_c = T_t + \frac{Q_\text{heater}}{\dot{m}_\text{eff}, c_p(T_c)},\quad P_c \approx P_t$
 * **Implementation notes:**
 
   * Use a small constant `mdot_eff` floor to avoid divide-by-zero when `mdot_in` is very small.
@@ -268,10 +256,7 @@ def Mach_from_area_ratio(Ae_At, gamma, supersonic=True):
 ```
 
 * **Purpose:** Solve for Mach number from nozzle area ratio.
-* **Equation:**
-  $
-  \frac{A_e}{A^*} = \frac{1}{M}\left[\frac{2}{\gamma+1}\left(1 + \frac{\gamma-1}{2}M^2\right)\right]^{\frac{\gamma+1}{2(\gamma-1)}}
-  $ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[5]](#ref5)
+* **Equation:** $\frac{A_e}{A^*} = \frac{1}{M}\left[\frac{2}{\gamma+1}\left(1 + \frac{\gamma-1}{2}M^2\right)\right]^{\frac{\gamma+1}{2(\gamma-1)}}$ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[5]](#ref5)
 
 ---
 
@@ -279,12 +264,8 @@ def Mach_from_area_ratio(Ae_At, gamma, supersonic=True):
 
 * **Purpose:** Compute cold-gas resistojet performance using isentropic relations and choked-flow where appropriate.
 * **Key relations used:** mass flow from choked/no-choked conditions, exit temperature from isentropic expansion, thrust including pressure thrust term.
-* **Equations (conceptual):**
-  $
-  \dot{m} = \rho^* V^* A^*, \quad
-  T_e = \frac{T_t}{1 + 0.5(\gamma-1)M_e^2}, \quad
-  F= \dot{m} V_e + (p_e - p_\text{back}) A_e
-  $&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[5]](#ref5)
+* **Equations (conceptual):** $\dot{m} = \rho^* V^* A^*, \quad T_e = \frac{T_t}{1 + 0.5(\gamma-1)M_e^2}, \quad
+  F= \dot{m} V_e + (p_e - p_\text{back}) A_e$&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[[5]](#ref5)
 
 ---
 
@@ -306,11 +287,9 @@ def Mach_from_area_ratio(Ae_At, gamma, supersonic=True):
   4. Update propellant mass: `m_new = m_old - mdot * dt`.
   5. Compute thrust, Isp, and telemetry for this step.
 * **Equations used (summary):**
-  $
-  T_\text{tank,new} = T_\text{tank} - \frac{\dot{m} L_\text{vap}  dt}{m , c_p}, \quad
+  $T_\text{tank,new} = T_\text{tank} - \frac{\dot{m} L_\text{vap}  dt}{m , c_p}, \quad
   P_\text{tank,new} = P_\text{sat}(T_\text{tank,new}),\quad
-  \text{Isp} = \frac{F}{\dot{m} g_0}
-  $
+  \text{Isp} = \frac{F}{\dot{m} g_0}$
 
 ---
 
