@@ -1,6 +1,6 @@
 # tank.py — Resistojet propellant tank model
-from typing import Dict
-from fluids import FLUIDS           
+from typing import Dict, Optional
+from fluids import FLUIDS
 from thermo import compute_p0_from_T0  
 
 # ---------------------------------------------------------------------------
@@ -11,19 +11,22 @@ g0 = 9.80665               # m/s²
 class Tank:
     """Tank with temperature-driven pressure and enthalpy loss due to vaporization."""
 
-    def __init__(self, fluid_name: str, T0: float = None):
+    def __init__(self, fluid_name: str, T0: float = None, p_input: float = None):
         if fluid_name not in FLUIDS:
             raise ValueError(f"Fluid '{fluid_name}' not found in database.")
 
         fluid = FLUIDS[fluid_name]
 
         self.fluid_name = fluid_name
+        
         self.T = T0 or fluid['default_T0_K']        # Tank temperature [K]
         self.M = fluid['M_kg_per_mol']              # kg/mol
         self.cp = fluid['cp_liquid_J_per_kgK']      # J/kg/K
         self.R_specific = R_universal / self.M      
         self.L_vap = fluid.get('latent_heat_J_per_kg', 2.0e5)
 
+        # If user provided a tank pressure, use it; otherwise compute from T
+        self.p_input = p_input
         self.update_pressure()
 
     # -----------------------------------------------------------------------
@@ -37,11 +40,14 @@ class Tank:
     # Pressure update (T → P)
     # -----------------------------------------------------------------------
     def update_pressure(self):
-        self.p = compute_p0_from_T0(self.T, self.fluid_name)
+        if self.p_input is not None:
+            self.p = self.p_input
+        else:
+            self.p = compute_p0_from_T0(self.T, self.fluid_name)
         return self.p
 
     # -----------------------------------------------------------------------
-    # Add heat from heater (Qdot_t)
+    # Add heat from heater (Qdot)
     # -----------------------------------------------------------------------
     def add_heat(self, Qdot: float, mass_current: float, dt: float):
         """Add heater power to the tank."""
@@ -88,4 +94,3 @@ class Tank:
     # -----------------------------------------------------------------------
     def get_state(self) -> Dict[str, float]:
         return {"T_tank": self.T, "P_tank": self.p}
-
