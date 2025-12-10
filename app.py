@@ -3,6 +3,9 @@ import math
 import numpy as np
 import pandas as pd
 import streamlit as st
+import matplotlib.pyplot as plt
+import os
+import tempfile
 
 from fluids import FLUIDS
 from materials import MATERIALS, get_material_crit_t
@@ -11,6 +14,7 @@ from tank import Tank
 from performance import Resistojet
 from plots import plot_mdot_prop_mass, plot_temp_pressure, plot_thrust_Isp
 from heater_material import HEATER_MATERIALS
+from report_generator import generate_docx_report, generate_pdf_report
 
 g0 = 9.80665
 
@@ -29,6 +33,16 @@ st.markdown("<h1 style='text-align:center'>🚀 Resistojet Simulator</h1>", unsa
 
 if "simulation_started" not in st.session_state:
     st.session_state.simulation_started = False
+if "report_dialog_open" not in st.session_state:
+    st.session_state.report_dialog_open = False
+if "user_name" not in st.session_state:
+    st.session_state.user_name = ""
+if "report_format" not in st.session_state:
+    st.session_state.report_format = "PDF"
+if "include_methodology" not in st.session_state:
+    st.session_state.include_methodology = False
+if "report_notes" not in st.session_state:
+    st.session_state.report_notes = ""
 
 # -------------------------------
 # Sidebar Inputs
@@ -65,22 +79,25 @@ with st.sidebar:
         step=1.0
     )
 
+    # Compute saturation pressure
+    try:
+        P0 = compute_p0_from_T0(float(T0), fluid_name)
+    except Exception as e:
+        st.error(f"Error computing saturation pressure: {e}")
+        P0 = None
+
     # Critical point checks
     critical_T = fluid.get("critical_T_K")
     critical_P = fluid.get("critical_P_Pa")
-    try:
-        P0 = compute_p0_from_T0(float(T0), fluid_name)
-    except Exception:
-        P0 = None
 
     if critical_T is not None and T0 > critical_T:
         st.warning(f"⚠️ Tank temperature T₀ = {T0:.1f} K exceeds the fluid's critical temperature ({critical_T:.1f} K)!")
     if P0 is not None and critical_P is not None and P0 > critical_P:
-        st.warning(f"⚠️ Estimated P₀ ≈ {P0:.1e} Pa exceeds the fluid's critical pressure ({critical_P:.1e} Pa)!")
+        st.warning(f"⚠️ Saturated pressure P₀ ≈ {P0:.1e} Pa exceeds the fluid's critical pressure ({critical_P:.1e} Pa)!")
     if P0 is None and critical_T is not None and T0 > critical_T:
         st.caption("Cannot compute saturated pressure: likely supercritical regime")
     if P0 is not None:
-        st.caption(f"Initial saturated pressure (est.) P₀ ≈ {P0/1e5:.2f} bar")
+        st.caption(f"Saturated pressure P₀ ≈ {P0/1e5:.2f} bar")
 
     # Propellant mass or volume
     prop_input_type = st.radio("Specify propellant by", ("Mass", "Volume"))
@@ -150,8 +167,9 @@ with st.sidebar:
 # Simulation
 # -------------------------------
 if st.session_state.simulation_started:
-
+    # Initialize tank with computed saturation pressure
     tank = Tank(fluid_name=fluid_name, T0=T0)
+
     engine = Resistojet(
         fluid_name=fluid_name,
         A_throat=At,
@@ -179,7 +197,7 @@ if st.session_state.simulation_started:
         critical_T = fluid.get("critical_T_K")
 
         if critical_P is not None and tank.p > critical_P:
-            st.warn(
+            st.warning(
                 f" Tank pressure {tank.p/1e5:.2f} bar exceeds critical pressure "
                 f"({critical_P/1e5:.2f} bar)."
             )
@@ -260,11 +278,327 @@ if st.session_state.simulation_started:
     # Plots
     # -------------------------------
     if not sim_df.empty:
+        st.subheader("Simulation Results")
+        
+        # Display plots
         plot_temp_pressure(sim_df)
         plot_thrust_Isp(sim_df)
         plot_mdot_prop_mass(sim_df, m_tank, dt)
 
     st.success("Simulation finished! ✅")
+
+    # -------------------------------
+    # REPORT GENERATION
+    # -------------------------------
+    
+    # Prepare inputs table for the report (ALL INPUTS)
+    initial_pressure = P0 if P0 is not None else 0
+    
+    inputs_for_report = {
+        "Propellant": fluid_name,
+        "Throat Diameter Dt [mm]": f"{Dt_mm:.2f}",
+        "Exit Diameter De [mm]": f"{De_mm:.2f}",
+        "Chamber Material": chamber_material_name,
+        "Initial Tank Temperature [K]": f"{T0:.2f}",
+        "Saturated Pressure [bar]": f"{initial_pressure/1e5:.3f}",
+        "Propellant Mass [kg]": f"{m_tank:.5f}",
+        "Propellant Volume [L]": f"{v_tank:.5f}",
+        "Ambient/Back Pressure [Pa]": f"{p_ambient:.2f}",
+        "Timestep dt [s]": f"{dt:.3f}",
+        "Total Simulation Time [s]": f"{t_total:.1f}",
+        "Extended Version": "Yes" if use_extended_version else "No"
+    }
+    
+    if use_extended_version:
+        inputs_for_report.update({
+            "Chamber Heater Material": chamber_heater_material if chamber_heater_on else "N/A",
+            "Chamber Heater Power [W]": f"{chamber_heater_power_W:.1f}" if chamber_heater_on else "N/A",
+            "Chamber Heater Efficiency [%]": f"{chamber_heater_efficiency_pct*100:.1f}" if chamber_heater_on else "N/A",
+            "Chamber Heater Surface Area [cm²]": f"{chamber_heater_area_cm2:.2f}" if chamber_heater_on else "N/A",
+            "Tank Heater Power [W]": f"{tank_heater_power_W:.1f}" if tank_heater_on else "N/A",
+            "Tank Heater Efficiency [%]": f"{tank_heater_efficiency_pct*100:.1f}" if tank_heater_on else "N/A",
+            "Regulator Setpoint [bar]": f"{P_reg_set_bar:.2f}" if use_regulator else "N/A"
+        })
+
+    # Prepare final metrics table
+    mass_fraction = prop_used/m_tank if m_tank > 0 else 0.0
+    metrics_for_report = {
+        "Total Impulse [mN·s]": f"{total_impulse*1e3:.3f}",
+        "Average Thrust [mN]": f"{avg_thrust*1e3:.3f}",
+        "Average Specific Impulse [s]": f"{avg_Isp:.3f}",
+        "Maximum Exhaust Velocity [m/s]": f"{max_Ve:.3f}",
+        "Propellant Used [g]": f"{prop_used*1000:.2f}",
+        "Burn Time [s]": f"{sim_time_actual:.3f}",
+        "Propellant Mass Fraction": f"{mass_fraction:.3f}"
+    }
+
+    # Create a temporary directory for plots
+    with tempfile.TemporaryDirectory() as tmpdir:
+        plot_paths = {}
+        
+        # Prepare data
+        sim_df['P_chamber_bar'] = sim_df['P_chamber'] / 1e5
+        sim_df['P_tank_bar'] = sim_df['P_tank'] / 1e5
+        sim_df['thrust_mN'] = sim_df['thrust_N'] * 1e3
+        sim_df['mdot_mg_s'] = sim_df['mdot_kg_s'] * 1e6
+        prop_used_over_time = m_tank - sim_df["prop_mass_left_kg"]
+        prop_used_g = prop_used_over_time * 1000
+        
+        # Plot 1: Chamber Temperature & Pressure
+        chamber_temp_press_path = os.path.join(tmpdir, "chamber_temp_pressure.png")
+        fig1, ax1 = plt.subplots(figsize=(10, 6))
+        
+        if not sim_df.empty and len(sim_df) > 0:
+            ax1.plot(sim_df["time_s"], sim_df["Tc_K"], color='#16b9f0', label='Chamber Temp', linewidth=2)
+        
+        ax1.set_xlabel("Time [s]", fontsize=12)
+        ax1.set_ylabel("Temperature [K]", color='#16b9f0', fontsize=12)
+        ax1.tick_params(axis='y', labelcolor='#000000')
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(loc='upper left')
+        
+        ax2 = ax1.twinx()
+        if not sim_df.empty and len(sim_df) > 0:
+            ax2.plot(sim_df["time_s"], sim_df["P_chamber_bar"], color='#6130e6', label='Chamber Pressure', linewidth=2)
+        
+        ax2.set_ylabel("Pressure [bar]", color='#6130e6', fontsize=12)
+        ax2.tick_params(axis='y', labelcolor='#000000')
+        ax2.legend(loc='upper right')
+        
+        plt.title("Chamber Temp & Pressure", fontsize=14, fontweight='bold')
+        fig1.tight_layout()
+        fig1.savefig(chamber_temp_press_path, dpi=300, bbox_inches="tight")
+        plt.close(fig1)
+        plot_paths["Chamber Temperature & Pressure"] = chamber_temp_press_path
+
+        # Plot 2: Tank Temperature & Pressure
+        tank_temp_press_path = os.path.join(tmpdir, "tank_temp_pressure.png")
+        fig2, ax3 = plt.subplots(figsize=(10, 6))
+        
+        if not sim_df.empty and len(sim_df) > 0:
+            ax3.plot(sim_df["time_s"], sim_df["Tt_K"], color='#16b9f0', label='Tank Temp', linewidth=2)
+        
+        ax3.set_xlabel("Time [s]", fontsize=12)
+        ax3.set_ylabel("Temperature [K]", color='#16b9f0', fontsize=12)
+        ax3.tick_params(axis='y', labelcolor='#000000')
+        ax3.grid(True, alpha=0.3)
+        ax3.legend(loc='upper left')
+        
+        ax4 = ax3.twinx()
+        if not sim_df.empty and len(sim_df) > 0:
+            ax4.plot(sim_df["time_s"], sim_df["P_tank_bar"], color='#6130e6', label='Tank Pressure', linewidth=2)
+        
+        ax4.set_ylabel("Pressure [bar]", color='#6130e6', fontsize=12)
+        ax4.tick_params(axis='y', labelcolor='#000000')
+        ax4.legend(loc='upper right')
+        
+        plt.title("Tank Temp & Pressure", fontsize=14, fontweight='bold')
+        fig2.tight_layout()
+        fig2.savefig(tank_temp_press_path, dpi=300, bbox_inches="tight")
+        plt.close(fig2)
+        plot_paths["Tank Temperature & Pressure"] = tank_temp_press_path
+
+        # Plot 3: Thrust & Isp
+        thrust_isp_path = os.path.join(tmpdir, "thrust_isp.png")
+        fig3, ax5 = plt.subplots(figsize=(10, 6))
+        
+        if not sim_df.empty and len(sim_df) > 0:
+            ax5.plot(sim_df["time_s"], sim_df["thrust_mN"], color='#16b9f0', label='Thrust', linewidth=2)
+        
+        ax5.set_xlabel("Time [s]", fontsize=12)
+        ax5.set_ylabel("Thrust [mN]", color='#16b9f0', fontsize=12)
+        ax5.tick_params(axis='y', labelcolor='#000000')
+        ax5.grid(True, alpha=0.3)
+        
+        ax6 = ax5.twinx()
+        if not sim_df.empty and len(sim_df) > 0:
+            ax6.plot(sim_df["time_s"], sim_df["Isp_s"], color='#6130e6', label='Isp', linewidth=2)
+        
+        ax6.set_ylabel("Isp [s]", color='#16b9f0', fontsize=12)
+        ax6.tick_params(axis='y', labelcolor='#000000')
+        
+        lines1, labels1 = ax5.get_legend_handles_labels()
+        lines2, labels2 = ax6.get_legend_handles_labels()
+        ax5.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+        
+        plt.title("Thrust & Isp", fontsize=14, fontweight='bold')
+        fig3.tight_layout()
+        fig3.savefig(thrust_isp_path, dpi=300, bbox_inches="tight")
+        plt.close(fig3)
+        plot_paths["Thrust & Specific Impulse"] = thrust_isp_path
+
+        # Plot 4: Exit Velocity & Isp
+        ve_isp_path = os.path.join(tmpdir, "ve_isp.png")
+        fig4, ax7 = plt.subplots(figsize=(10, 6))
+        
+        if not sim_df.empty and len(sim_df) > 0:
+            ax7.plot(sim_df["time_s"], sim_df["Ve_m_s"], color='#16b9f0', label='Ve', linewidth=2)
+        
+        ax7.set_xlabel("Time [s]", fontsize=12)
+        ax7.set_ylabel("Ve [m/s]", color='#16b9f0', fontsize=12)
+        ax7.tick_params(axis='y', labelcolor='#000000')
+        ax7.grid(True, alpha=0.3)
+        
+        ax8 = ax7.twinx()
+        if not sim_df.empty and len(sim_df) > 0:
+            ax8.plot(sim_df["time_s"], sim_df["Isp_s"], color='#6130e6', label='Isp', linewidth=2)
+        
+        ax8.set_ylabel("Isp [s]", color='#6130e6', fontsize=12)
+        ax8.tick_params(axis='y', labelcolor='#000000')
+        
+        lines3, labels3 = ax7.get_legend_handles_labels()
+        lines4, labels4 = ax8.get_legend_handles_labels()
+        ax7.legend(lines3 + lines4, labels3 + labels4, loc='upper right')
+        
+        plt.title("Exit Velocity & Isp", fontsize=14, fontweight='bold')
+        fig4.tight_layout()
+        fig4.savefig(ve_isp_path, dpi=300, bbox_inches="tight")
+        plt.close(fig4)
+        plot_paths["Exit Velocity & Specific Impulse"] = ve_isp_path
+
+        # Plot 5: Mass Flow Rate
+        mdot_path = os.path.join(tmpdir, "mass_flow.png")
+        fig5, ax9 = plt.subplots(figsize=(10, 6))
+        
+        if not sim_df.empty and len(sim_df) > 0:
+            ax9.plot(sim_df["time_s"], sim_df["mdot_mg_s"], color='#16b9f0', label='Mass Flow Rate', linewidth=2)
+        
+        ax9.set_xlabel("Time [s]", fontsize=12)
+        ax9.set_ylabel("Mass Flow [mg/s]", color='#16b9f0', fontsize=12)
+        ax9.tick_params(axis='y', labelcolor='#000000')
+        ax9.grid(True, alpha=0.3)
+        ax9.legend(loc='upper right')
+        
+        plt.title("Mass Flow Rate", fontsize=14, fontweight='bold')
+        fig5.tight_layout()
+        fig5.savefig(mdot_path, dpi=300, bbox_inches="tight")
+        plt.close(fig5)
+        plot_paths["Mass Flow Rate"] = mdot_path
+
+        # Plot 6: Propellant Mass Remaining
+        prop_remain_path = os.path.join(tmpdir, "propellant_remaining.png")
+        fig6, ax10 = plt.subplots(figsize=(10, 6))
+        
+        if not sim_df.empty and len(sim_df) > 0:
+            ax10.plot(sim_df["time_s"], sim_df["prop_mass_left_kg"], color='#16b9f0', label='Propellant Left', linewidth=2)
+        
+        ax10.set_xlabel("Time [s]", fontsize=12)
+        ax10.set_ylabel("Mass [kg]", color='#16b9f0', fontsize=12)
+        ax10.tick_params(axis='y', labelcolor='#000000')
+        ax10.grid(True, alpha=0.3)
+        ax10.legend(loc='upper right')
+        
+        plt.title("Propellant Mass Remaining", fontsize=14, fontweight='bold')
+        fig6.tight_layout()
+        fig6.savefig(prop_remain_path, dpi=300, bbox_inches="tight")
+        plt.close(fig6)
+        plot_paths["Propellant Mass Remaining"] = prop_remain_path
+
+        # Single Generate Report Button
+        if st.button("📊 Generate Report", type="primary"):
+            st.session_state.report_dialog_open = True
+            st.rerun()
+
+        # Report Configuration Dialog (appears when button is clicked)
+        if st.session_state.report_dialog_open:
+            with st.expander("Report Configuration", expanded=True):
+                st.markdown("### Report Settings")
+                
+                # User name input
+                st.session_state.user_name = st.text_input(
+                    "Your Name",
+                    value=st.session_state.user_name,
+                    placeholder="Enter your name for the report"
+                )
+                
+                # Report format selection
+                st.session_state.report_format = st.radio(
+                    "Report Format",
+                    ["PDF", "DOCX"],
+                    horizontal=True
+                )
+                
+                # Include Methodology as Appendix A
+                st.session_state.include_methodology = st.checkbox(
+                    "Include Methodology (Appendix A)",
+                    value=st.session_state.include_methodology,
+                    help="The methodology will be included as Appendix A at the end of the report"
+                )
+                
+                # Additional notes
+                st.session_state.report_notes = st.text_area(
+                    "Additional Notes (optional)",
+                    value=st.session_state.report_notes,
+                    placeholder="Add any additional notes or comments for the report...",
+                    height=100
+                )
+                
+                # Action buttons
+                col_gen, col_cancel = st.columns(2)
+                with col_gen:
+                    if st.button("Generate Report Now", type="primary"):
+                        # Generate the report based on selected format
+                        if st.session_state.report_format == "PDF":
+                            pdf_path = f"Resistojet_Report_{fluid_name.replace(' ', '_')}.pdf"
+                            generate_pdf_report(
+                                sim_df=sim_df,
+                                metrics=metrics_for_report,
+                                inputs=inputs_for_report,
+                                plot_paths=plot_paths,
+                                out_path=pdf_path,
+                                user_name=st.session_state.user_name if st.session_state.user_name else "User",
+                                include_methodology=st.session_state.include_methodology,
+                                include_raw_data=False,  # Always false
+                                include_recommendations=False,  # Always false
+                                report_notes=st.session_state.report_notes,
+                                use_extended_version=use_extended_version,
+                                chamber_heater_on=chamber_heater_on if use_extended_version else False,
+                                tank_heater_on=tank_heater_on if use_extended_version else False,
+                                use_regulator=use_regulator if use_extended_version else False
+                            )
+                            
+                            with open(pdf_path, "rb") as f:
+                                st.download_button(
+                                    label="⬇️ Download PDF Report",
+                                    data=f.read(),
+                                    file_name=pdf_path,
+                                    mime="application/pdf"
+                                )
+                        else:  # DOCX
+                            docx_path = f"Resistojet_Report_{fluid_name.replace(' ', '_')}.docx"
+                            generate_docx_report(
+                                sim_df=sim_df,
+                                metrics=metrics_for_report,
+                                inputs=inputs_for_report,
+                                plot_paths=plot_paths,
+                                out_path=docx_path,
+                                user_name=st.session_state.user_name if st.session_state.user_name else "User",
+                                include_methodology=st.session_state.include_methodology,
+                                include_raw_data=False,  # Always false
+                                include_recommendations=False,  # Always false
+                                report_notes=st.session_state.report_notes,
+                                use_extended_version=use_extended_version,
+                                chamber_heater_on=chamber_heater_on if use_extended_version else False,
+                                tank_heater_on=tank_heater_on if use_extended_version else False,
+                                use_regulator=use_regulator if use_extended_version else False
+                            )
+                            
+                            with open(docx_path, "rb") as f:
+                                st.download_button(
+                                    label="⬇️ Download DOCX Report",
+                                    data=f.read(),
+                                    file_name=docx_path,
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                )
+                        
+                        # Optionally close the dialog
+                        st.session_state.report_dialog_open = False
+                        st.rerun()
+                
+                with col_cancel:
+                    if st.button("Cancel"):
+                        st.session_state.report_dialog_open = False
+                        st.rerun()
 
 else:
     st.info("Configure inputs in the sidebar and press Run Simulation 🚀")
