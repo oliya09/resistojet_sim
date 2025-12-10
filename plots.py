@@ -85,13 +85,11 @@ def plot_mdot_prop_mass(sim_df, m_tank, dt):
     fig1 = go.Figure()
     fig1.add_trace(go.Scatter(x=sim_df['time_s'], y=sim_df['mdot_mg_s'],
                               mode='lines', name='Mass Flow [mg/s]', line=dict(color='#16b9f0')))
-    # invisible y2 for dual axis structure
-    fig1.add_trace(go.Scatter(
-        x=sim_df['time_s'], y=sim_df['mdot_mg_s'],
-        mode='lines', name='', line=dict(color='rgba(0,0,0,0)'), yaxis='y2'
-    ))
-    fig1 = apply_dual_axis(fig1, "Mass Flow Rate",
-                           "Time [s]", "mg/s", "")
+    fig1.update_layout(
+        title="Mass Flow Rate",
+        xaxis_title="Time [s]",
+        yaxis=dict(title="Mass Flow [mg/s]", color='#16b9f0')
+    )
     st.plotly_chart(fig1, use_container_width=True)
 
     # Propellant mass left
@@ -100,12 +98,10 @@ def plot_mdot_prop_mass(sim_df, m_tank, dt):
     fig2 = go.Figure()
     fig2.add_trace(go.Scatter(x=sim_df['time_s'], y=sim_df['prop_mass_left_kg'],
                               mode='lines', name='Propellant Left [kg]', line=dict(color='#16b9f0')))
-    fig2.add_trace(go.Scatter(
-        x=sim_df['time_s'], y=sim_df['prop_mass_left_kg'],
-        mode='lines', name='', line=dict(color='rgba(0,0,0,0)'), yaxis='y2'
-    ))
-    fig2 = apply_dual_axis(fig2, "Propellant Mass Remaining",
-                           "Time [s]", "kg", "")
+    fig2.update_layout(
+        title="Propellant Mass Remaining",
+        xaxis_title="Time [s]",
+        yaxis=dict(title="Mass [kg]", color='#16b9f0')
+    )
     st.plotly_chart(fig2, use_container_width=True)
-
 
