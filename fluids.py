@@ -30,13 +30,13 @@ FLUIDS: Dict[str, dict] = {
         'default_p0_Pa': 1.1e5,
         'default_T0_K': 80.0,
         'wagner_coeffs': {
-            'A':  -6.096760,
-            'B': 1.136700,
+            'A': -6.09676,
+            'B': 1.1367,
             'C': -1.040720,
-            'D': -1.933060,
+            'D': -1.93306
         },
         "cp_poly": {"a": 1040.0, "b": 0.35, "c": -1.1e-4, "d": 2.0e-8},
-        'boiling_T_K': 77.0,
+        'boiling_T_K': 77.36,
         'critical_T_K': 126.2,
         'critical_P_Pa': 3.39e6,
         
@@ -52,10 +52,10 @@ FLUIDS: Dict[str, dict] = {
         'default_p0_Pa': 8.45e5,
         'default_T0_K': 293.15,
         'wagner_coeffs': {
-            'A': -6.85,
-            'B': 1.52,
-            'C': -2.93,
-            'D': -0.002
+            'A': -7.264810,
+            'B': 1.43524,
+            'C': -3.4449,
+            'D': 2.959790 * 1e01
         },
         "cp_poly": {"a": 2030.0, "b": -0.35, "c": 0.0015, "d": 0.0},
         'boiling_T_K': 239.8,
@@ -74,16 +74,15 @@ FLUIDS: Dict[str, dict] = {
         'default_p0_Pa': 1e5,
         'default_T0_K': 20.0,
         'wagner_coeffs': {
-            'A': -6.78,
-            'B': 1.45,
-            'C': -2.97,
-            'D': -0.001
+            'A': -5.57929,
+            'B': 2.60012,
+            'C': -8.5506*1e-01,
+            'D': 1.70503
         },
         "cp_poly": {"a": 1430.0, "b": 0.0, "c": 0.0, "d": 0.0},
         'boiling_T_K': 21.0,
         'critical_T_K': 32.97,
         'critical_P_Pa': 1.297e6,
-        
         'latent_heat_J_per_kg': 450e3,
         'cp_liquid_J_per_kgK': 10.0,
         'cp_gas_J_per_kgK': 14300.0,
@@ -96,10 +95,10 @@ FLUIDS: Dict[str, dict] = {
         'default_p0_Pa': 1e5,
         'default_T0_K': 110.0,
         'wagner_coeffs': {
-            'A': -6.85,
-            'B': 1.51,
-            'C': -2.95,
-            'D': -0.001
+            'A': -6.00435,
+            'B': 1.1885,
+            'C': -8.3408 * 1e-01,
+            'D': -1.228330
         },
         "cp_poly": {"a": 2220.0, "b": 0.0, "c": 0.0, "d": 0.0},
         'boiling_T_K': 111.7,
@@ -140,14 +139,14 @@ FLUIDS: Dict[str, dict] = {
         'default_p0_Pa': 1.01325e5,
         'default_T0_K': 298.15,
         'wagner_coeffs': {
-            'A': -7.764510,
-            'B': 1.458380,
+            'A': -7.76451,
+            'B': 1.45838,
             'C': -2.7758,
             'D': -1.23303
         },
         "cp_poly": {"a": 4184.0, "b": 0.0, "c": 0.0, "d": 0.0},
         'boiling_T_K': 373.15,
-        'critical_T_K': 647.14,
+        'critical_T_K': 647.1,
         'critical_P_Pa': 22.064e6,
         
         'latent_heat_J_per_kg': 2257e3,
@@ -162,10 +161,10 @@ FLUIDS: Dict[str, dict] = {
         'default_p0_Pa': 1e5,
         'default_T0_K': 90.0,
         'wagner_coeffs': {
-            'A': -6.282750,
-            'B': 1.736190,
-            'C': -1.813490,
-            'D': -2.536450E-02
+            'A': -6.28275,
+            'B': 1.73619,
+            'C': -1.81349,
+            'D': -2.536450 * 1e-02
         },
         "cp_poly": {"a": 918.0, "b": 0.0, "c": 0.0, "d": 0.0},
         'boiling_T_K': 90.19,
@@ -184,10 +183,10 @@ FLUIDS: Dict[str, dict] = {
         'default_p0_Pa': 1e5,
         'default_T0_K': 298.15,
         'wagner_coeffs': {
-            'A': -6.0,
-            'B': 1.2,
-            'C': -2.0,
-            'D': -0.0015
+            'A': -6.95626,
+            'B': 1.19695,
+            'C': -3.12614,
+            'D': 4.85939
         },
         "cp_poly": {"a": 839.0, "b": 0.0, "c": 0.0, "d": 0.0},
         'boiling_T_K': 194.7,
@@ -206,14 +205,14 @@ FLUIDS: Dict[str, dict] = {
         'default_p0_Pa': 1e5,
         'default_T0_K': 87.0,
         'wagner_coeffs': {
-            'A': -6.8,
+            'A': -6.02327,
             'B': 1.33,
             'C': -2.8,
             'D': -0.001
         },
         "cp_poly": {"a": 520.0, "b": 0.0, "c": 0.0, "d": 0.0},
         'boiling_T_K': 87.3,
-        'critical_T_K': 150.9,
+        'critical_T_K': 150.86,
         'critical_P_Pa': 4.898e6,
         
         'latent_heat_J_per_kg': 161e3,
@@ -221,6 +220,7 @@ FLUIDS: Dict[str, dict] = {
         'cp_gas_J_per_kgK': 520.0,
     },
 
+    
 
 }
 
@@ -242,4 +242,3 @@ def default_init_state(fluid_name: str) -> dict:
         "fill_fraction": tank.get('fill_fraction'),
         "pa": 1e-5,
     }
-

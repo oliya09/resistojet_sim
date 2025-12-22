@@ -95,8 +95,13 @@ class Resistojet:
         gamma: float = 1.09,
         R: float = None,
         alpha: float = 0.0,
-        A_h: Optional[float] = None
+        A_h: Optional[float] = None,
+        custom_fluid=None
     ):
+        if custom_fluid:
+            self.fluid = custom_fluid
+        else:
+            self.fluid = FLUIDS[fluid_name]
         self.A_h = A_h
         self.heater_material = heater_material
         if fluid_name not in FLUIDS:

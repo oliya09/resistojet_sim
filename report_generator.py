@@ -34,7 +34,7 @@ def generate_docx_report(sim_df, metrics, inputs, plot_paths, out_path,
                         include_methodology=False, include_raw_data=False,
                         include_recommendations=False, report_notes="", user_name="User",
                         use_extended_version=False, chamber_heater_on=False, tank_heater_on=False,
-                        use_regulator=False):
+                        use_regulator=False, initial_volume_m3=None, initial_pressure_Pa=None):
     """Generate DOCX report with elegant appendix"""
     
     doc = Document()
@@ -77,19 +77,45 @@ def generate_docx_report(sim_df, metrics, inputs, plot_paths, out_path,
             for run in paragraph.runs:
                 run.bold = True
     
-    # Basic presets
+    # Get initial pressure value (try multiple possible keys)
+    initial_pressure_bar = 0.0
+    if initial_pressure_Pa is not None:
+        initial_pressure_bar = initial_pressure_Pa / 1e5
+    elif 'Saturated Pressure [bar]' in inputs:
+        initial_pressure_bar = float(inputs.get('Saturated Pressure [bar]', 0))
+    elif 'Initial Gas Pressure [bar]' in inputs:
+        initial_pressure_bar = float(inputs.get('Initial Gas Pressure [bar]', 0))
+    elif 'Initial Pressure [bar]' in inputs:
+        initial_pressure_bar = float(inputs.get('Initial Pressure [bar]', 0))
+    
+    # Get initial volume (try multiple possible keys)
+    initial_volume_L = 0.0
+    if initial_volume_m3 is not None:
+        initial_volume_L = initial_volume_m3 * 1000
+    elif 'Initial Tank Volume [L]' in inputs:
+        initial_volume_L = float(inputs.get('Initial Tank Volume [L]', 0))
+    elif 'Tank Volume [L]' in inputs:
+        initial_volume_L = float(inputs.get('Tank Volume [L]', 0))
+    elif 'Propellant Volume [L]' in inputs:
+        initial_volume_L = float(inputs.get('Propellant Volume [L]', 0))
+    
+    # Basic presets - using actual keys from app.py
+    phase = inputs.get('Phase', 'LIQUID')
+    
     basic_presets = [
         ("Propellant", inputs.get('Propellant', 'N/A')),
+        ("Initial Phase", phase),
         ("Throat diameter Dt [mm]", inputs.get('Throat Diameter Dt [mm]', 'N/A')),
         ("Exit diameter De [mm]", inputs.get('Exit Diameter De [mm]', 'N/A')),
         ("Chamber material", inputs.get('Chamber Material', 'N/A')),
-        ("Tank initial temperature Tt [K]", inputs.get('Initial Tank Temperature [K]', 'N/A')),
-        ("Initial saturated pressure (est.) Pt [bar]", inputs.get('Saturated Pressure [bar]', 'N/A')),  # Changed from 'Initial Tank Pressure [bar]' to 'Saturated Pressure [bar]'
-        ("Propellant mass [kg]", inputs.get('Propellant Mass [kg]', 'N/A')),
-        ("Volume [L]", inputs.get('Propellant Volume [L]', 'N/A')),
-        ("Ambient/back pressure [Pa]", inputs.get('Ambient/Back Pressure [Pa]', 'N/A')),
+        ("Initial Tank Temperature [K]", inputs.get('Initial Tank Temperature [K]', 'N/A')),
+        (f"Initial {'Gas' if phase == 'GAS' else 'Saturated'} Pressure [bar]", f"{initial_pressure_bar:.3f}"),
+        ("Propellant Mass [kg]", inputs.get('Propellant Mass [kg]', 'N/A')),
+        ("Tank Volume [L]", f"{initial_volume_L:.5f}"),
+        ("Ambient/Back Pressure [Pa]", inputs.get('Ambient/Back Pressure [Pa]', 'N/A')),
         ("Timestep dt [s]", inputs.get('Timestep dt [s]', 'N/A')),
-        ("Simulation time [s]", inputs.get('Total Simulation Time [s]', 'N/A'))
+        ("Total Simulation Time [s]", inputs.get('Total Simulation Time [s]', 'N/A')),
+        ("Extended Version", "Yes" if use_extended_version else "No")
     ]
     
     # Add basic presets
@@ -299,13 +325,13 @@ def generate_docx_report(sim_df, metrics, inputs, plot_paths, out_path,
         eq4_run.font.color.rgb = RGBColor(0, 0, 139)
         
         doc.add_paragraph()
-        doc.add_paragraph('Radiative heat loss:')
+        doc.add_paragraph('Radiative heat:')
         
         eq5 = doc.add_paragraph()
         eq5.alignment = WD_ALIGN_PARAGRAPH.CENTER
         eq5.paragraph_format.space_before = Pt(8)
         eq5.paragraph_format.space_after = Pt(12)
-        eq5_run = eq5.add_run('Q_loss = σ ε A_h (T_c⁴ - T_amb⁴)')
+        eq5_run = eq5.add_run('Q = σ ε A_h (T_c⁴ - T_amb⁴)')
         eq5_run.font.name = 'Cambria Math'
         eq5_run.font.size = Pt(11)
         eq5_run.font.color.rgb = RGBColor(0, 0, 139)
@@ -494,7 +520,7 @@ def generate_pdf_report(sim_df, metrics, inputs, plot_paths, out_path,
                        include_methodology=False, include_raw_data=False,
                        include_recommendations=False, report_notes="", user_name="User",
                        use_extended_version=False, chamber_heater_on=False, tank_heater_on=False,
-                       use_regulator=False):
+                       use_regulator=False, initial_volume_m3=None, initial_pressure_Pa=None):
     
     doc = SimpleDocTemplate(out_path, pagesize=A4)
     styles = getSampleStyleSheet()
@@ -566,7 +592,7 @@ def generate_pdf_report(sim_df, metrics, inputs, plot_paths, out_path,
         'Equation',
         parent=styles['Normal'],
         fontSize=11,
-        textColor=colors.HexColor('#000000'),  # Dark blue
+        textColor=colors.HexColor('#000000'),
         alignment=1,
         fontName='Courier-Bold',
         spaceBefore=10,
@@ -601,22 +627,47 @@ def generate_pdf_report(sim_df, metrics, inputs, plot_paths, out_path,
     story.append(Paragraph("PRESETS", heading_style))
     story.append(Spacer(1, 0.05*inch))
     
+    # Get initial pressure and volume values
+    initial_pressure_bar = 0.0
+    if initial_pressure_Pa is not None:
+        initial_pressure_bar = initial_pressure_Pa / 1e5
+    elif 'Saturated Pressure [bar]' in inputs:
+        initial_pressure_bar = float(inputs.get('Saturated Pressure [bar]', 0))
+    elif 'Initial Gas Pressure [bar]' in inputs:
+        initial_pressure_bar = float(inputs.get('Initial Gas Pressure [bar]', 0))
+    elif 'Initial Pressure [bar]' in inputs:
+        initial_pressure_bar = float(inputs.get('Initial Pressure [bar]', 0))
+    
+    initial_volume_L = 0.0
+    if initial_volume_m3 is not None:
+        initial_volume_L = initial_volume_m3 * 1000
+    elif 'Initial Tank Volume [L]' in inputs:
+        initial_volume_L = float(inputs.get('Initial Tank Volume [L]', 0))
+    elif 'Tank Volume [L]' in inputs:
+        initial_volume_L = float(inputs.get('Tank Volume [L]', 0))
+    elif 'Propellant Volume [L]' in inputs:
+        initial_volume_L = float(inputs.get('Propellant Volume [L]', 0))
+    
     # Prepare presets data
     presets_data = [["Parameter", "Value"]]
+    
+    phase = inputs.get('Phase', 'LIQUID')
     
     # Basic presets
     basic_presets = [
         ("Propellant", inputs.get('Propellant', 'N/A')),
+        ("Initial Phase", phase),
         ("Throat diameter Dt [mm]", inputs.get('Throat Diameter Dt [mm]', 'N/A')),
         ("Exit diameter De [mm]", inputs.get('Exit Diameter De [mm]', 'N/A')),
         ("Chamber material", inputs.get('Chamber Material', 'N/A')),
-        ("Tank initial temperature Tt [K]", inputs.get('Initial Tank Temperature [K]', 'N/A')),
-        ("Initial saturated pressure (est.) Pt [bar]", inputs.get('Saturated Pressure [bar]', 'N/A')),
-        ("Propellant mass [kg]", inputs.get('Propellant Mass [kg]', 'N/A')),
-        ("Volume [L]", inputs.get('Propellant Volume [L]', 'N/A')),
-        ("Ambient/back pressure [Pa]", inputs.get('Ambient/Back Pressure [Pa]', 'N/A')),
+        ("Initial Tank Temperature [K]", inputs.get('Initial Tank Temperature [K]', 'N/A')),
+        (f"Initial {'Gas' if phase == 'GAS' else 'Saturated'} Pressure [bar]", f"{initial_pressure_bar:.3f}"),
+        ("Propellant Mass [kg]", inputs.get('Propellant Mass [kg]', 'N/A')),
+        ("Tank Volume [L]", f"{initial_volume_L:.5f}"),
+        ("Ambient/Back Pressure [Pa]", inputs.get('Ambient/Back Pressure [Pa]', 'N/A')),
         ("Timestep dt [s]", inputs.get('Timestep dt [s]', 'N/A')),
-        ("Simulation time [s]", inputs.get('Total Simulation Time [s]', 'N/A'))
+        ("Total Simulation Time [s]", inputs.get('Total Simulation Time [s]', 'N/A')),
+        ("Extended Version", "Yes" if use_extended_version else "No")
     ]
     
     for preset_name, preset_value in basic_presets:
@@ -787,9 +838,9 @@ def generate_pdf_report(sim_df, metrics, inputs, plot_paths, out_path,
         story.append(Paragraph(eq4, equation_style))
         story.append(Spacer(1, 0.05*inch))
         
-        story.append(Paragraph("Radiative heat loss:", normal_style))
+        story.append(Paragraph("Radiative heat:", normal_style))
         
-        eq5 = "Q<sub>loss</sub> = σ ε A<sub>h</sub> (T<sub>c</sub><sup>4</sup> - T<sub>amb</sub><sup>4</sup>)"
+        eq5 = "Q = σ ε A<sub>h</sub> (T<sub>c</sub><sup>4</sup> - T<sub>amb</sub><sup>4</sup>)"
         story.append(Paragraph(eq5, equation_style))
         story.append(Spacer(1, 0.15*inch))
         
